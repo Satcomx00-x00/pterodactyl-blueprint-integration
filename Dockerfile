@@ -30,8 +30,8 @@ COPY --from=0 /app/public/assets ./public/assets
 RUN apt update && apt install -y ash ca-certificates curl git supervisor tar unzip libpng-dev libxml2-dev libzip-dev certbot python3-certbot-nginx netcat \
     && addgroup --system nginx \
     && adduser --system --ingroup nginx nginx \
-#    && addgroup --system nginx \
-#    && adduser --system --ingroup nginx nginx \
+    #    && addgroup --system nginx \
+    #    && adduser --system --ingroup nginx nginx \
     && docker-php-ext-configure zip \
     && docker-php-ext-install bcmath gd pdo_mysql zip \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
@@ -49,7 +49,7 @@ RUN mkdir -p /var/spool/cron/crontabs && \
     echo "* * * * * /usr/local/bin/php /app/artisan schedule:run >> /dev/null 2>&1" >> /var/spool/cron/crontabs/root && \
     echo "0 23 * * * certbot renew --nginx --quiet" >> /var/spool/cron/crontabs/root && \
     sed -i s/ssl_session_cache/#ssl_session_cache/g /etc/nginx/nginx.conf && \
-#    rm /usr/local/etc/php-fpm.conf && \
+    #    rm /usr/local/etc/php-fpm.conf && \
     mkdir -p /var/run/php /var/run/nginx
 #    mkdir -p /var/run/php /var/run/nginx
 
@@ -64,6 +64,23 @@ COPY .github/docker/www.conf /usr/local/etc/php-fpm.conf
 COPY .github/docker/supervisord.conf /etc/supervisord.conf
 
 RUN ln -s /etc/nginx/http.d/panel.conf /etc/nginx/sites-available/panel.conf
+
+RUN apt-get install -y wget zip nano && \
+    wget https://github.com/teamblueprint/main/releases/download/alpha-NLM/alpha-NLM.zip && \
+    unzip alpha-NLM.zip && \
+    find . -type f -exec sed -i 's/\/var\/www\/pterodactyl/\/app/g' {} \; && \
+    cp -r blueprint .blueprint && \
+    apt-get install -y ca-certificates curl gnupg && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    npm i -g yarn && \
+    yarn && \
+    chmod +x blueprint.sh && \
+    ./blueprint.sh -y && \
+    php artisan migrate --seed --force
 
 EXPOSE 80 443
 ENTRYPOINT [ "/bin/ash", ".github/docker/entrypoint.sh" ]
